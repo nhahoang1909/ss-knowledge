@@ -253,7 +253,12 @@
 
     .wiki-link { background: var(--accent-bg2); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-size: .9em; font-weight: 500; }
 
-    .mermaid { margin: 16px 0; text-align: center; }
+    .mermaid {
+      margin: 24px 0; text-align: center; padding: 24px 16px;
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-md);
+      overflow-x: auto; transition: background var(--tr-base), border-color var(--tr-base);
+    }
+    .mermaid svg { max-width: 100%; height: auto; }
 
     /* ========== FOOTER ========== */
     .footer { text-align: center; padding: 32px; color: var(--tx-3); font-size: .85rem; border-top: 1px solid var(--border); margin-top: 64px; }
@@ -591,14 +596,20 @@
       const pre = code.parentElement;
       const div = document.createElement('div');
       div.className = 'mermaid';
-      div.textContent = code.textContent;
+      const source = code.textContent;
+      div.textContent = source;
+      div.setAttribute('data-source', source);
       pre.replaceWith(div);
     });
     if (container.querySelector('.mermaid')) {
       mermaid.initialize({
         startOnLoad: false,
         theme: getTheme() === 'dark' ? 'dark' : 'default',
-        securityLevel: 'strict'
+        securityLevel: 'strict',
+        flowchart: { curve: 'basis', padding: 16 },
+        themeVariables: getTheme() === 'dark'
+          ? { primaryColor: '#1e3a5f', primaryTextColor: '#f1f5f9', lineColor: '#60a5fa', secondaryColor: '#334155' }
+          : { primaryColor: '#dbeafe', primaryTextColor: '#0f172a', lineColor: '#3b82f6', secondaryColor: '#f1f5f9' }
       });
       mermaid.run({ querySelector: '.mermaid' }).catch(() => {});
     }
@@ -668,7 +679,15 @@
     // Theme
     setTheme(getTheme());
     document.getElementById('theme-btn').addEventListener('click', () => {
-      setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+      const newTheme = getTheme() === 'dark' ? 'light' : 'dark';
+      setTheme(newTheme);
+      // Re-render mermaid diagrams with new theme
+      const mermaidEls = document.querySelectorAll('.mermaid');
+      if (mermaidEls.length) {
+        mermaidEls.forEach(el => { el.removeAttribute('data-processed'); el.innerHTML = el.getAttribute('data-source'); });
+        mermaid.initialize({ startOnLoad: false, theme: newTheme === 'dark' ? 'dark' : 'default', securityLevel: 'strict' });
+        mermaid.run({ querySelector: '.mermaid' }).catch(() => {});
+      }
     });
 
     // Search
