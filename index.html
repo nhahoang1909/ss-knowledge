@@ -121,6 +121,8 @@
     }
     .btn-icon:hover { background: var(--bg-2); border-color: var(--border-h); color: var(--tx-1); }
 
+    .lang-btn { font-size: .78rem; font-weight: 600; min-width: 38px; text-align: center; }
+
     /* ========== PROGRESS BAR ========== */
     .progress { position: fixed; top: var(--navbar-h); left: 0; height: 3px; background: var(--accent); z-index: 101; transition: width 80ms linear; border-radius: 0 2px 2px 0; }
 
@@ -326,6 +328,7 @@
         <span class="s-icon">🔍</span>
         <input type="text" id="search" placeholder="Tìm kiếm bài viết..." autocomplete="off">
       </div>
+      <button class="btn-icon lang-btn" id="lang-btn" title="Switch language" aria-label="Switch language">EN</button>
       <button class="btn-icon" id="theme-btn" title="Đổi giao diện" aria-label="Toggle theme">🌙</button>
     </div>
   </nav>
@@ -381,25 +384,34 @@
      ==================================================== */
   const ARTICLES = [
     {
-      file: 'SS-Week5.md', week: 5,
+      file: { vi: 'SS-Week5.md', en: 'SS-Week5-en.md' }, week: 5,
       title: 'User Authentication',
-      desc: 'Passwords, hashing, salting, rainbow tables, OTP, 2FA, và các phương thức xác thực người dùng',
+      desc: {
+        vi: 'Passwords, hashing, salting, rainbow tables, OTP, 2FA, và các phương thức xác thực người dùng',
+        en: 'Passwords, hashing, salting, rainbow tables, OTP, 2FA, and user authentication methods'
+      },
       icon: '🔐',
       tags: ['authentication', 'password', 'cryptography', '2FA'],
       accent: '#3b82f6'
     },
     {
-      file: 'SS-Week6.md', week: 6,
+      file: { vi: 'SS-Week6.md', en: 'SS-Week6-en.md' }, week: 6,
       title: 'Anonymity and Privacy',
-      desc: 'Tor, onion routing, hidden services, network-layer anonymity, và privacy trên Internet',
+      desc: {
+        vi: 'Tor, onion routing, hidden services, network-layer anonymity, và privacy trên Internet',
+        en: 'Tor, onion routing, hidden services, network-layer anonymity, and Internet privacy'
+      },
       icon: '🕵️',
       tags: ['anonymity', 'privacy', 'tor', 'onion-routing'],
       accent: '#8b5cf6'
     },
     {
-      file: 'SS-Week7.md', week: 7,
+      file: { vi: 'SS-Week7.md', en: 'SS-Week7-en.md' }, week: 7,
       title: 'Side-Channel Attacks',
-      desc: 'Timing attacks trên RSA, Meltdown, Spectre, cache covert channels, và CPU architecture vulnerabilities',
+      desc: {
+        vi: 'Timing attacks trên RSA, Meltdown, Spectre, cache covert channels, và CPU architecture vulnerabilities',
+        en: 'Timing attacks on RSA, Meltdown, Spectre, cache covert channels, and CPU architecture vulnerabilities'
+      },
       icon: '⚡',
       tags: ['side-channel', 'meltdown', 'spectre', 'timing-attack'],
       accent: '#ef4444'
@@ -422,6 +434,50 @@
   let mdCache = {};
 
   /* ====================================================
+     LANGUAGE
+     ==================================================== */
+  const I18N = {
+    vi: {
+      siteTitle: 'Systems Security — Knowledge Base',
+      heroDesc: 'Ghi chú bài giảng môn Systems Security — tổng hợp kiến thức bảo mật hệ thống để chia sẻ và ôn tập',
+      searchPlaceholder: 'Tìm kiếm bài viết...',
+      weekLabel: 'Tuần',
+      backBtn: '← Về trang chính',
+      tocLabel: 'Mục lục',
+      tocEmpty: 'Không có mục lục',
+      loading: 'Đang tải nội dung...',
+      loadError: 'Không thể tải nội dung. Hãy đảm bảo file markdown nằm cùng thư mục.',
+      noResults: 'Không tìm thấy bài viết phù hợp',
+      footer: 'Made with ❤️ for Systems Security learners · Dễ dàng deploy lên GitHub Pages hoặc Vercel'
+    },
+    en: {
+      siteTitle: 'Systems Security — Knowledge Base',
+      heroDesc: 'Systems Security lecture notes — compiled system security knowledge for sharing and review',
+      searchPlaceholder: 'Search articles...',
+      weekLabel: 'Week',
+      backBtn: '← Back to Home',
+      tocLabel: 'Table of Contents',
+      tocEmpty: 'No table of contents',
+      loading: 'Loading content...',
+      loadError: 'Unable to load content. Make sure the markdown file is in the same directory.',
+      noResults: 'No matching articles found',
+      footer: 'Made with ❤️ for Systems Security learners · Easy to deploy on GitHub Pages or Vercel'
+    }
+  };
+
+  function getLang() { return localStorage.getItem('ss-lang') || 'en'; }
+  function setLang(lang) {
+    localStorage.setItem('ss-lang', lang);
+    document.getElementById('lang-btn').textContent = lang === 'vi' ? 'EN' : 'VI';
+    document.getElementById('search').placeholder = I18N[lang].searchPlaceholder;
+    document.querySelector('.hero p').textContent = I18N[lang].heroDesc;
+    document.querySelector('.back-btn').textContent = I18N[lang].backBtn;
+    document.querySelector('.toc-label').textContent = I18N[lang].tocLabel;
+    document.querySelector('.footer p').textContent = I18N[lang].footer;
+    mdCache = {}; // Clear cache when switching language
+  }
+
+  /* ====================================================
      THEME
      ==================================================== */
   function getTheme() { return localStorage.getItem('ss-theme') || 'light'; }
@@ -436,6 +492,16 @@
   /* ====================================================
      ROUTING
      ==================================================== */
+  function getArticleFile(article) {
+    const lang = getLang();
+    return article.file[lang] || article.file.vi;
+  }
+
+  function getArticleDesc(article) {
+    const lang = getLang();
+    return article.desc[lang] || article.desc.vi;
+  }
+
   function navigateTo(path) {
     window.location.hash = path ? '#/article/' + encodeURIComponent(path) : '#/';
   }
@@ -444,7 +510,13 @@
     const hash = decodeURIComponent(window.location.hash);
     if (hash.startsWith('#/article/')) {
       const file = hash.replace('#/article/', '');
-      showArticle(file);
+      // Find article by either vi or en file
+      const article = ARTICLES.find(a => a.file.vi === file || a.file.en === file);
+      if (article) {
+        showArticle(getArticleFile(article));
+      } else {
+        showHome();
+      }
     } else {
       showHome();
     }
@@ -457,7 +529,7 @@
     document.getElementById('home-view').style.display = '';
     document.getElementById('article-view').classList.remove('active');
     document.getElementById('toc-toggle').style.display = '';
-    document.title = 'Systems Security — Knowledge Base';
+    document.title = I18N[getLang()].siteTitle;
     if (currentObserver) { currentObserver.disconnect(); currentObserver = null; }
     renderCards();
   }
@@ -465,24 +537,25 @@
   function renderCards(filter) {
     const container = document.getElementById('cards');
     const q = (filter || '').toLowerCase().trim();
+    const lang = getLang();
     const filtered = ARTICLES.filter(a =>
       !q ||
       a.title.toLowerCase().includes(q) ||
-      a.desc.toLowerCase().includes(q) ||
+      (a.desc[lang] || a.desc.vi).toLowerCase().includes(q) ||
       a.tags.some(t => t.includes(q))
     );
 
     if (!filtered.length) {
-      container.innerHTML = '<div class="no-results"><div class="no-results-icon">🔍</div><p>Không tìm thấy bài viết phù hợp</p></div>';
+      container.innerHTML = '<div class="no-results"><div class="no-results-icon">🔍</div><p>' + I18N[lang].noResults + '</p></div>';
       return;
     }
 
     container.innerHTML = filtered.map((a, i) => `
-      <div class="card" style="--card-accent:${a.accent}; animation-delay:${i * .1}s" onclick="navigateTo('${a.file}')">
+      <div class="card" style="--card-accent:${a.accent}; animation-delay:${i * .1}s" onclick="navigateTo('${getArticleFile(a)}')">
         <div class="card-icon">${a.icon}</div>
-        <div class="card-week">Tuần ${a.week}</div>
+        <div class="card-week">${I18N[lang].weekLabel} ${a.week}</div>
         <div class="card-title">${a.title}</div>
-        <div class="card-desc">${a.desc}</div>
+        <div class="card-desc">${getArticleDesc(a)}</div>
         <div class="card-meta">
           <div class="card-tags">${a.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
         </div>
@@ -494,7 +567,7 @@
      ARTICLE VIEW
      ==================================================== */
   async function showArticle(file) {
-    const article = ARTICLES.find(a => a.file === file);
+    const article = ARTICLES.find(a => a.file.vi === file || a.file.en === file);
     if (!article) { navigateTo(''); return; }
 
     document.getElementById('home-view').style.display = 'none';
@@ -503,7 +576,7 @@
     document.title = article.title + ' — Systems Security';
 
     const body = document.getElementById('article-body');
-    body.innerHTML = '<div class="loading"><div class="spinner"></div> Đang tải nội dung...</div>';
+    body.innerHTML = '<div class="loading"><div class="spinner"></div> ' + I18N[getLang()].loading + '</div>';
 
     try {
       let md;
@@ -517,7 +590,7 @@
       }
       renderMarkdown(md, body);
     } catch (e) {
-      body.innerHTML = '<div class="no-results"><div class="no-results-icon">😥</div><p>Không thể tải nội dung. Hãy đảm bảo file markdown nằm cùng thư mục.</p></div>';
+      body.innerHTML = '<div class="no-results"><div class="no-results-icon">😥</div><p>' + I18N[getLang()].loadError + '</p></div>';
     }
   }
 
@@ -633,7 +706,7 @@
   function generateTOC(articleContainer) {
     const list = document.getElementById('toc-list');
     const headings = articleContainer.querySelectorAll('h2, h3');
-    if (!headings.length) { list.innerHTML = '<li style="color:var(--tx-3);font-size:.8rem">Không có mục lục</li>'; return; }
+    if (!headings.length) { list.innerHTML = '<li style="color:var(--tx-3);font-size:.8rem">' + I18N[getLang()].tocEmpty + '</li>'; return; }
 
     list.innerHTML = Array.from(headings).map(h => {
       const level = h.tagName.toLowerCase();
@@ -676,6 +749,23 @@
      EVENTS
      ==================================================== */
   function init() {
+    // Language
+    setLang(getLang());
+    document.getElementById('lang-btn').addEventListener('click', () => {
+      const newLang = getLang() === 'vi' ? 'en' : 'vi';
+      setLang(newLang);
+      renderCards(document.getElementById('search').value);
+      // If viewing an article, reload it in the new language
+      const hash = decodeURIComponent(window.location.hash);
+      if (hash.startsWith('#/article/')) {
+        const file = hash.replace('#/article/', '');
+        const article = ARTICLES.find(a => a.file.vi === file || a.file.en === file);
+        if (article) {
+          navigateTo(getArticleFile(article));
+        }
+      }
+    });
+
     // Theme
     setTheme(getTheme());
     document.getElementById('theme-btn').addEventListener('click', () => {
